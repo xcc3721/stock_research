@@ -1,0 +1,231 @@
+{
+  "strategy_id": "A2_flat_v1",
+  "description": "A2-flat v1 = original report total_score top-30 candidate pool + canonical mechanical anchor rank + breakout/VCP/MA overlay - kline/pivot penalty; tie-break uses report total_score",
+  "mechanical_anchor": {
+    "engine": "ExplicitMechanicalAnchor",
+    "description": "Minimal canonical mechanical anchor config embedded for A2-flat; only fields used by ExplicitMechanicalAnchor are retained.",
+    "scoring_config": {
+      "enabled": true,
+      "factors": {
+        "ma_structure": {
+          "enabled": true,
+          "weight": 10.0
+        },
+        "b1_comprehensive": {
+          "enabled": true,
+          "weight": 46.0,
+          "adjustments": [
+            {
+              "min": 0.0,
+              "max": 0.4,
+              "multiplier": 0.95
+            },
+            {
+              "min": 0.4,
+              "max": 0.6,
+              "multiplier": 1.05
+            },
+            {
+              "min": 0.6,
+              "max": 0.81,
+              "multiplier": 1.15
+            },
+            {
+              "min": 0.81,
+              "max": 1.01,
+              "multiplier": 0.775
+            }
+          ]
+        },
+        "b1_template_similarity": {
+          "enabled": false,
+          "weight": 0.0
+        },
+        "symmetry_resonance": {
+          "enabled": true,
+          "weight": 15.0,
+          "neutral": 0.5
+        },
+        "kline_patterns": {
+          "enabled": true,
+          "weight": 20.0,
+          "adjustments": [
+            {
+              "min": 0.0,
+              "max": 0.4,
+              "multiplier": 0.8
+            },
+            {
+              "min": 0.4,
+              "max": 0.6,
+              "multiplier": 0.95
+            },
+            {
+              "min": 0.6,
+              "max": 0.8,
+              "multiplier": 1.15
+            },
+            {
+              "min": 0.8,
+              "max": 1.01,
+              "multiplier": 0.9
+            }
+          ]
+        },
+        "volume_anomaly": {
+          "enabled": false,
+          "weight": 0.0
+        },
+        "pocket_pivot": {
+          "enabled": true,
+          "weight": 5.0,
+          "adjustments": [
+            {
+              "min": 0.0,
+              "max": 0.2,
+              "multiplier": 0.9
+            },
+            {
+              "min": 0.2,
+              "max": 0.4,
+              "multiplier": 1.15
+            },
+            {
+              "min": 0.4,
+              "max": 0.7,
+              "multiplier": 1.0
+            },
+            {
+              "min": 0.7,
+              "max": 1.01,
+              "multiplier": 0.85
+            }
+          ]
+        },
+        "b1_pattern": {
+          "enabled": false,
+          "weight": 0.0
+        },
+        "vcp_compression": {
+          "enabled": true,
+          "weight": 12.0,
+          "adjustments": [
+            {
+              "min": 0.0,
+              "max": 0.2,
+              "multiplier": 1.05
+            },
+            {
+              "min": 0.2,
+              "max": 0.4,
+              "multiplier": 1.25
+            },
+            {
+              "min": 0.4,
+              "max": 0.6,
+              "multiplier": 0.9
+            },
+            {
+              "min": 0.6,
+              "max": 0.8,
+              "multiplier": 0.7
+            },
+            {
+              "min": 0.8,
+              "max": 1.01,
+              "multiplier": 0.6
+            }
+          ]
+        },
+        "supply_analysis": {
+          "enabled": true,
+          "weight": 5.0
+        },
+        "pivot_analysis": {
+          "enabled": true,
+          "weight": 5.0,
+          "adjustments": [
+            {
+              "min": 0.0,
+              "max": 0.3,
+              "multiplier": 1.1
+            },
+            {
+              "min": 0.3,
+              "max": 0.6,
+              "multiplier": 1.05
+            },
+            {
+              "min": 0.6,
+              "max": 0.8,
+              "multiplier": 0.85
+            },
+            {
+              "min": 0.8,
+              "max": 1.01,
+              "multiplier": 0.7
+            }
+          ]
+        },
+        "risk_penalty": {
+          "enabled": true,
+          "weight": -5.0
+        },
+        "structure_analysis": {
+          "enabled": true,
+          "weight": 21.0
+        },
+        "momentum_basic": {
+          "enabled": false,
+          "weight": 0.0
+        }
+      }
+    }
+  },
+  "score_col": "a2_flat_v1_score",
+  "rank_method": "average",
+  "normalization": "sum_abs_weights",
+  "tie_break": {
+    "source_col": "report_total_score",
+    "epsilon": 1e-12,
+    "higher_is_better": true
+  },
+  "components": [
+    {
+      "name": "canonical_anchor_rank",
+      "source_col": "canonical_mechanical_anchor_score",
+      "weight": 0.75,
+      "higher_is_better": true
+    },
+    {
+      "name": "breakout_cluster_rank",
+      "source_col": "breakout_cluster_score",
+      "weight": 0.125,
+      "higher_is_better": true
+    },
+    {
+      "name": "vcp_rank",
+      "source_col": "vcp_compression__weighted",
+      "weight": 0.08333333333333333,
+      "higher_is_better": true
+    },
+    {
+      "name": "ma_rank",
+      "source_col": "ma_structure__directional",
+      "weight": 0.041666666666666664,
+      "higher_is_better": true
+    },
+    {
+      "name": "kline_rank_penalty",
+      "source_col": "kline_patterns__weighted",
+      "weight": -0.1,
+      "higher_is_better": true
+    },
+    {
+      "name": "pivot_rank_penalty",
+      "source_col": "pivot_analysis__weighted",
+      "weight": -0.1,
+      "higher_is_better": true
+    }
+  ]
+}

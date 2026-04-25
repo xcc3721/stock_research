@@ -1,0 +1,280 @@
+{
+  "selector": {
+    "j_threshold": 13,
+    "bbi_min_window": 20,
+    "max_window": 120,
+    "price_range_pct": 10,
+    "bbi_q_threshold": 0.3,
+    "j_q_threshold": 0.1
+  },
+  "scoring_config": {
+    "enabled": true,
+    "factors": {
+      "ma_structure": {
+        "weight": 10.0,
+        "enabled": true,
+        "name": "均线结构",
+        "params": {
+          "ma_periods": [20, 60, 120, 250],
+          "env_ma_period": 60,
+          "env_ma_ratios": {
+            "best": [0.92, 1.08],
+            "good": [0.85, 1.15]
+          },
+          "stabilization_lookback": 5,
+          "ma_stabilization": {
+            "slope_lookback": 3,
+            "slope_threshold": -0.05,
+            "crossover_threshold": 0.02
+          }
+        }
+      },
+      "b1_comprehensive": {
+        "weight": 50.0,
+        "enabled": true,
+        "name": "B1综合因子",
+        "params": {
+          "scoring_mode": "v3_winner",
+          "j_threshold_bbi": 10,
+          "j_threshold_sb1": 5,
+          "j_q_threshold_bbi": 0.05,
+          "j_q_threshold_sb1": 0.1,
+          "enhanced_b1_pattern": {
+            "max_lookback": 60,
+            "min_pullback_days": 5,
+            "j_entry_threshold": 10,
+            "spike_volume_min_ratio": 3,
+            "pullback_max_vol_ratio": 0.7,
+            "spike_volume_score_ratio": 5
+          },
+          "dealer_washout": {
+            "consecutive_bearish_min": 3,
+            "consecutive_bearish_max": 4,
+            "j_negative_threshold": 0
+          },
+          "dealer_distribution": {
+            "total_bearish_min": 7,
+            "total_bearish_max": 8,
+            "j_distribution_range": [20, 30]
+          },
+          "red_fat_green_thin": {
+            "lookback": 60,
+            "volume_ratio_target": 3.0,
+            "day_balance_range": [0.7, 1.4],
+            "analysis_mode": "medium_term"
+          },
+          "high_volatility_elasticity": {
+            "lookback": 30,
+            "daily_range_weight": 0.6,
+            "total_range_weight": 0.4,
+            "big_range_threshold": 0.08,
+            "elasticity_multiplier": 10
+          },
+          "sb1_pattern": {
+            "max_history_lookback": 90,
+            "min_gap_days": 10,
+            "max_gap_days": 30,
+            "j_threshold": 10,
+            "price_failure_threshold": 1.1
+          }
+        },
+        "adjustments": [
+          {"min": 0.0, "max": 0.4, "multiplier": 0.95},
+          {"min": 0.4, "max": 0.6, "multiplier": 1.05},
+          {"min": 0.6, "max": 0.8, "multiplier": 1.15},
+          {"min": 0.8, "max": 1.01, "multiplier": 0.5}
+        ]
+      },
+      "b1_template_similarity": {
+        "weight": 0.0,
+        "enabled": false,
+        "name": "B1形态相似度",
+        "params": {}
+      },
+      "symmetry_resonance": {
+        "weight": 15.0,
+        "enabled": true,
+        "bonus": true,
+        "name": "对称走势",
+        "params": {
+          "lookback": 90,
+          "smooth_window": 1,
+          "extrema_order": 7,
+          "amplitude_pct": 0.05,
+          "min_segment": 4,
+          "neutral_score": 0.5,
+          "large_structure_ratio": 1.5,
+          "structure_level": 0,
+          "diff_mode": "latest",
+          "enforce_boundary": false,
+          "enforce_time_balance": true,
+          "require_left_ge_right": true,
+          "tolerance": 1e-06
+        }
+      },
+      "kline_patterns": {
+        "weight": 20.0,
+        "enabled": true,
+        "name": "关键K线",
+        "params": {
+          "lookback": 8,
+          "weights": {
+            "hammer": 0.0,
+            "engulfing": 0.0,
+            "morning_star": 1.0,
+            "doji": 0.0,
+            "long_shadow": 0.0
+          }
+        },
+        "adjustments": [
+          {"min": 0.0, "max": 0.4, "multiplier": 0.8},
+          {"min": 0.4, "max": 0.6, "multiplier": 0.95},
+          {"min": 0.6, "max": 0.8, "multiplier": 1.15},
+          {"min": 0.8, "max": 1.01, "multiplier": 0.9}
+        ]
+      },
+      "volume_anomaly": {
+        "weight": 0.0,
+        "enabled": false,
+        "name": "成交量异动"
+      },
+      "pocket_pivot": {
+        "weight": 5.0,
+        "enabled": true,
+        "name": "口袋妖怪",
+        "params": {
+          "lookback": 15,
+          "candidate_days": 3
+        },
+        "adjustments": [
+          {"min": 0.0, "max": 0.2, "multiplier": 0.9},
+          {"min": 0.2, "max": 0.4, "multiplier": 1.15},
+          {"min": 0.4, "max": 0.7, "multiplier": 1.0},
+          {"min": 0.7, "max": 1.01, "multiplier": 0.85}
+        ]
+      },
+      "b1_pattern": {
+        "weight": 0.0,
+        "enabled": false,
+        "name": "B1买点形态"
+      },
+      "vcp_compression": {
+        "weight": 10.0,
+        "enabled": true,
+        "name": "VCP压缩",
+        "params": {
+          "lookback": 30,
+          "min_compression_days": 5,
+          "volatility_compression": {
+            "strong_threshold": 0.5,
+            "obvious_threshold": 0.7,
+            "mild_threshold": 0.85,
+            "weak_threshold": 0.95
+          },
+          "volume_contraction": {
+            "strong_threshold": 0.4,
+            "obvious_threshold": 0.6,
+            "mild_threshold": 0.8,
+            "weak_threshold": 0.9
+          }
+        },
+        "adjustments": [
+          {"min": 0.0, "max": 0.2, "multiplier": 1.05},
+          {"min": 0.2, "max": 0.4, "multiplier": 1.25},
+          {"min": 0.4, "max": 0.6, "multiplier": 0.9},
+          {"min": 0.6, "max": 0.8, "multiplier": 0.7},
+          {"min": 0.8, "max": 1.01, "multiplier": 0.6}
+        ]
+      },
+      "supply_analysis": {
+        "weight": 5.0,
+        "enabled": true,
+        "name": "供给分析",
+        "params": {
+          "lookback": 120,
+          "chip_distribution": {
+            "price_bins": 100,
+            "lookback_days": 120,
+            "min_required_days": 30,
+            "decay_factor": 1.0,
+            "min_turnover": 0.01
+          }
+        }
+      },
+      "pivot_analysis": {
+        "weight": 5.0,
+        "enabled": true,
+        "name": "枢轴分析",
+        "params": {
+          "lookback_period": 120,
+          "pivot_periods": [3],
+          "support_weights": [0.7, 0.2, 0.1],
+          "resistance_weights": [0.2, 0.3, 0.5],
+          "volume_confirmation_ratio": 1.2,
+          "price_tolerance": 0.02,
+          "proximity_threshold": 0.02
+        },
+        "adjustments": [
+          {"min": 0.0, "max": 0.3, "multiplier": 1.1},
+          {"min": 0.3, "max": 0.6, "multiplier": 1.05},
+          {"min": 0.6, "max": 0.8, "multiplier": 0.85},
+          {"min": 0.8, "max": 1.01, "multiplier": 0.7}
+        ]
+      },
+      "risk_penalty": {
+        "weight": -5.0,
+        "enabled": true,
+        "name": "风险控制",
+        "params": {
+          "top_windmill": {
+            "enabled": true,
+            "lookback_days": 60,
+            "shadow_body_ratio": 2.0,
+            "min_upper_shadow_ratio": 0.3,
+            "min_lower_shadow_ratio": 0.2,
+            "penalty_weight": 0.6
+          }
+        }
+      },
+      "structure_analysis": {
+        "weight": 20.0,
+        "enabled": true,
+        "name": "异动",
+        "params": {
+          "lookback_pulse": 120,
+          "min_pulse_days": 3,
+          "pulse_vol_multiplier": 2.0,
+          "pulse_turnover_multiplier": 2.0,
+          "pulse_price_rise": 0.15,
+          "peak_prominence_pct": 0.05,
+          "peak_prominence_lookback": 5,
+          "peak_max_window": 3,
+          "use_high_for_retracement": true,
+          "baseline_vol_lookback": 20,
+          "min_retracement_pct": 0.1,
+          "vol_shrink_thresholds": {
+            "full": 0.4,
+            "pass": 0.6,
+            "weak": 0.8
+          },
+          "retracement_bands": {
+            "ideal_low": 0.3,
+            "ideal_high": 0.6,
+            "ok_shallow": 0.2,
+            "ok_deep": 0.75
+          }
+        }
+      },
+      "momentum_basic": {
+        "weight": 0.0,
+        "enabled": false,
+        "name": "基础动量"
+      }
+    },
+    "thresholds": {
+      "buy": 60.0,
+      "watch": 45.0,
+      "avoid": 0.0
+    }
+  }
+}

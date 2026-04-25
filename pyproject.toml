@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-research"
+version = "0.1.0"
+description = "A stock selection research toolkit for generating A2-ranked JSON reports and backtests."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "tushare",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+stock-research-update-data = "stock_research.data.update_daily_data:main"
+stock-research-generate-reports = "stock_research.reporting.a2_reports:main"
+stock-research-backtest = "stock_research.backtest.standard_execution:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,42 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local environment / secrets
+.venv/
+.env
+.env.*
+!.env.example
+
+# Python cache / test artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Generated data / outputs
+/daily_data/
+/data/*.csv
+!/data/.gitkeep
+/opensource_trace.md
+/reports/
+/results/
+/debug/
+/logs/
+/backtest/
+
+# Build artifacts
+/dist/
+/build/
+*.egg-info/
+pip-wheel-metadata/
+.ipynb_checkpoints/

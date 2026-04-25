@@ -1,0 +1,1 @@
+"""Simplified report generation utilities."""
