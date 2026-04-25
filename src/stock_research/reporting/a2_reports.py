@@ -113,7 +113,7 @@ def generate_a2_reports(
     candidate_pool_top_n: int = 30,
     candidate_pool_sort: str = "total_score",
     candidate_pool_csv: Path | None = None,
-    works: int = 4,
+    workers: int = 4,
 ) -> dict[str, Any]:
     allowed_codes = resolve_code_filter(codes=codes, codes_file=codes_file)
     universe = load_universe(data_dir, allowed_codes=allowed_codes)
@@ -133,7 +133,7 @@ def generate_a2_reports(
 
     codes_count = int(len(allowed_codes)) if allowed_codes is not None else int(len(universe))
     output_dir.mkdir(parents=True, exist_ok=True)
-    worker_count = min(max(1, int(works)), len(trade_dates))
+    worker_count = min(max(1, int(workers)), len(trade_dates))
     allowed_codes_tuple = tuple(sorted(allowed_codes)) if allowed_codes is not None else None
     del universe
     gc.collect()
@@ -176,7 +176,7 @@ def generate_a2_reports(
         "trade_dates_count": int(len(trade_dates)),
         "first_trade_date": trade_dates[0].date().isoformat(),
         "last_trade_date": trade_dates[-1].date().isoformat(),
-        "works": int(worker_count),
+        "workers": int(worker_count),
         "candidate_pool": {
             "top_n": int(candidate_pool_top_n),
             "sort": str(candidate_pool_sort),
@@ -200,7 +200,7 @@ def main() -> int:
     parser.add_argument("--start-date", default="")
     parser.add_argument("--end-date", default="")
     parser.add_argument("--report-limit", type=int, default=0)
-    parser.add_argument("--works", "--workers", dest="works", type=int, default=4, help="并行生成 report 的进程数，默认 4；传 1 使用串行")
+    parser.add_argument("--workers", type=int, default=4, help="并行生成 report 的进程数，默认 4")
     parser.add_argument("--codes", default="")
     parser.add_argument("--codes-file", default="")
     parser.add_argument("--candidate-pool-top-n", type=int, default=30)
@@ -229,9 +229,9 @@ def main() -> int:
         candidate_pool_top_n=int(args.candidate_pool_top_n),
         candidate_pool_sort=str(args.candidate_pool_sort),
         candidate_pool_csv=candidate_pool_csv,
-        works=int(args.works),
+        workers=int(args.workers),
     )
-    LOGGER.info("完成生成 A2 reports: %s", json.dumps({key: manifest[key] for key in ("report_dir", "trade_dates_count", "works")}, ensure_ascii=False))
+    LOGGER.info("完成生成 A2 reports: %s", json.dumps({key: manifest[key] for key in ("report_dir", "trade_dates_count", "workers")}, ensure_ascii=False))
     return 0
 
 
