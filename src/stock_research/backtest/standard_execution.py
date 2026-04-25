@@ -38,6 +38,21 @@ SKIPPED_COLUMNS = [
     "detail",
 ]
 DAILY_NAV_COLUMNS = ["date", "daily_return", "turnover", "exposure"]
+SUMMARY_FIELD_LABELS = {
+    "total_return": "总收益",
+    "annualized_return": "年化收益",
+    "max_drawdown": "最大回撤",
+    "trade_win_rate": "交易胜率",
+    "average_trade_return": "单笔均值",
+    "average_exposure": "平均仓位",
+    "average_turnover": "平均换手",
+    "total_cost": "总成本",
+}
+SUMMARY_NUMBER_LABELS = {
+    "trade_count": "交易数",
+    "skipped_count": "跳过信号",
+    "sample_days": "样本日",
+}
 
 
 @dataclass(frozen=True)
@@ -70,6 +85,62 @@ def _read_price_frame(path: Path) -> pd.DataFrame:
     return frame.dropna(subset=["date", "open", "close"]).sort_values("date").reset_index(drop=True)
 
 
+def _format_float(value: object, digits: int = 2) -> str:
+    numeric = pd.to_numeric(value, errors="coerce")
+    if pd.isna(numeric):
+        return "N/A"
+    return f"{float(numeric):.{digits}f}"
+
+
+def _format_int(value: object) -> str:
+    numeric = pd.to_numeric(value, errors="coerce")
+    if pd.isna(numeric):
+        return "0"
+    return str(int(numeric))
+
+
+def _format_percent(value: object) -> str:
+    numeric = pd.to_numeric(value, errors="coerce")
+    if pd.isna(numeric):
+        return "N/A"
+    return f"{float(numeric) * 100.0:.2f}%"
+
+
+def format_backtest_statistics(summary_csv: Path) -> str:
+    summary = pd.read_csv(summary_csv, encoding="utf-8-sig", low_memory=False)
+    if summary.empty:
+        return "回测结果统计: summary.csv 为空"
+    row = summary.iloc[0].to_dict()
+    period = f"{row.get('start_date', '')} -> {row.get('end_date', '')}"
+    lines = [
+        "回测结果统计:",
+        f"  区间: {period}, 样本日: {_format_int(row.get('sample_days'))}",
+        (
+            "  收益: "
+            f"{SUMMARY_FIELD_LABELS['total_return']} {_format_percent(row.get('total_return'))}, "
+            f"{SUMMARY_FIELD_LABELS['annualized_return']} {_format_percent(row.get('annualized_return'))}, "
+            f"{SUMMARY_FIELD_LABELS['max_drawdown']} {_format_percent(row.get('max_drawdown'))}, "
+            f"Sharpe {_format_float(row.get('sharpe'))}"
+        ),
+        (
+            "  交易: "
+            f"{SUMMARY_NUMBER_LABELS['trade_count']} {_format_int(row.get('trade_count'))}, "
+            f"{SUMMARY_NUMBER_LABELS['skipped_count']} {_format_int(row.get('skipped_count'))}, "
+            f"{SUMMARY_FIELD_LABELS['trade_win_rate']} {_format_percent(row.get('trade_win_rate'))}, "
+            f"{SUMMARY_FIELD_LABELS['average_trade_return']} {_format_percent(row.get('average_trade_return'))}"
+        ),
+        (
+            "  暴露: "
+            f"{SUMMARY_FIELD_LABELS['average_exposure']} {_format_percent(row.get('average_exposure'))}, "
+            f"{SUMMARY_FIELD_LABELS['average_turnover']} {_format_percent(row.get('average_turnover'))}, "
+            f"{SUMMARY_FIELD_LABELS['total_cost']} {_format_percent(row.get('total_cost'))}"
+        ),
+    ]
+    if "average_holding_days" in row:
+        lines.append(f"  持仓: 平均持仓天数 {_format_float(row.get('average_holding_days'))}")
+    return "\n".join(lines)
+
+
 def _load_price_map(data_dir: Path, codes: Iterable[str]) -> tuple[dict[str, pd.DataFrame], pd.DatetimeIndex]:
     frames: dict[str, pd.DataFrame] = {}
     all_dates: set[pd.Timestamp] = set()
@@ -88,6 +159,7 @@ def _load_price_map(data_dir: Path, codes: Iterable[str]) -> tuple[dict[str, pd.
 
 def build_prediction_frame(report_dir: Path, score_col: str) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
+    columns = ["report_date", "code", "name", score_col]
     for path in sorted(report_dir.glob("*.report_data.json")):
         payload = json.loads(path.read_text(encoding="utf-8"))
         data = payload.get("data", {})
@@ -121,12 +193,16 @@ def build_prediction_frame(report_dir: Path, score_col: str) -> pd.DataFrame:
                 }
             )
     if not rows:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=columns)
     frame = pd.DataFrame(rows)
     frame["report_date"] = pd.to_datetime(frame["report_date"], errors="coerce").dt.normalize()
     frame["code"] = frame["code"].map(_normalize_code)
     frame[score_col] = pd.to_numeric(frame[score_col], errors="coerce")
-    return frame.dropna(subset=["report_date", "code", score_col]).sort_values(["report_date", score_col, "code"], ascending=[True, False, True]).reset_index(drop=True)
+    return (
+        frame.dropna(subset=["report_date", "code", score_col])[columns]
+        .sort_values(["report_date", score_col, "code"], ascending=[True, False, True])
+        .reset_index(drop=True)
+    )
 
 
 def export_prediction_frame(report_dir: Path, output_csv: Path, score_col: str) -> Path:
@@ -535,6 +611,7 @@ def main() -> int:
     if report_dir is not None and predictions_csv is None:
         LOGGER.info("已从 report_dir 导出 predictions: %s", display_path(resolved_predictions_csv))
     LOGGER.info("完成标准回测: %s", {key: display_path(value) for key, value in outputs.items()})
+    LOGGER.info("%s", format_backtest_statistics(outputs["summary"]))
     return 0
 
 

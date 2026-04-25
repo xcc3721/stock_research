@@ -1,10 +1,11 @@
 # stock_research
 
-`stock_research` 是一个基于本地 A 股日线数据的选股研究工具。它提供三件事：
+`stock_research` 是一个基于本地 A 股日线数据的选股研究工具。它提供四件事：
 
 1. 通过 Tushare 更新本地 `daily_data/*.csv`
 2. 生成包含 BBIKDJ 选股结果、子因子明细和 A2 排序结果的 JSON 报告
 3. 基于报告目录执行固定持有期回测
+4. 从回测结果输出净值曲线 SVG 图表
 
 项目不包含 HTML 渲染和行情数据文件。默认配置只保留两份：
 
@@ -88,7 +89,8 @@ stock-research-generate-reports \
   --data-dir daily_data \
   --output-dir reports \
   --start-date 2026-04-01 \
-  --end-date 2026-04-24
+  --end-date 2026-04-24 \
+  --works 4
 ```
 
 报告文件会写入：
@@ -117,6 +119,8 @@ stock-research-generate-reports \
   --candidate-pool-sort total_score
 ```
 
+`--works` 控制本地 report 生成的最大多进程数量，默认 `4`；如需降低内存占用或调试单进程行为，可传 `--works 1`。`--workers` 是同义参数。
+
 ### 3. 回测
 
 ```bash
@@ -136,6 +140,27 @@ stock-research-backtest \
 - `backtest/a2_flat_v1/trades.csv`
 - `backtest/a2_flat_v1/skipped_trades.csv`
 - `backtest/a2_flat_v1/daily_nav.csv`
+
+命令结束时会在终端打印核心统计，包括总收益、年化收益、最大回撤、Sharpe、交易数、跳过信号、交易胜率、单笔均值、平均仓位和成本。
+
+### 4. 输出净值曲线
+
+从回测输出目录生成 SVG：
+
+```bash
+stock-research-plot-nav \
+  --backtest-dir backtest/a2_flat_v1 \
+  --output backtest/a2_flat_v1/nav_curve.svg \
+  --title "A2 Flat V1 NAV"
+```
+
+也可以直接指定 `daily_nav.csv`：
+
+```bash
+stock-research-plot-nav \
+  --daily-nav-csv backtest/a2_flat_v1/daily_nav.csv \
+  --output backtest/a2_flat_v1/nav_curve.svg
+```
 
 ## B1 Scoring
 
@@ -175,4 +200,5 @@ MIT License 只覆盖本仓库代码和文档，不覆盖用户通过 Tushare �
 - 回测按每日信号独立开仓，同一标的已有持仓时不额外去重
 - 回测遇到持仓标的缺失价格日时，会沿用上一收盘价保留 exposure，并在下一个可用价格日退出
 - 回测不会在最后一个净值日开新仓；无法入场的信号会写入 `skipped_trades.csv`
+- `stock-research-plot-nav` 读取 `daily_nav.csv`，输出不依赖额外绘图库的 SVG 净值曲线
 - 报告真实交易日读取 `data.summary.trade_date`，不要用文件名推断交易日

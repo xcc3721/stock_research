@@ -8,8 +8,14 @@ import pandas as pd
 
 from stock_research.backtest.standard_execution import (
     StandardExecutionConfig,
+    format_backtest_statistics,
     main as backtest_main,
     run_standard_execution,
+)
+from stock_research.backtest.nav_chart import (
+    NavChartConfig,
+    build_nav_chart,
+    resolve_daily_nav_csv,
 )
 from tests.helpers import make_report_payload, write_price_csv
 
@@ -109,6 +115,10 @@ def test_standard_execution_cli_accepts_report_dir(tmp_path: Path) -> None:
     assert not trades.empty
     assert set(skipped.columns) >= {"report_date", "intended_entry_date", "code", "reason"}
     assert not nav.empty
+    stats_text = format_backtest_statistics(output_dir / "summary.csv")
+    assert "回测结果统计" in stats_text
+    assert "总收益" in stats_text
+    assert "交易数" in stats_text
 
 
 def test_standard_execution_uses_next_trading_day_for_friday_signal(tmp_path: Path) -> None:
@@ -344,3 +354,30 @@ def test_standard_execution_skips_entry_on_final_nav_day(tmp_path: Path) -> None
     assert int(summary.loc[0, "skipped_count"]) == 1
     assert trades.empty
     assert skipped.loc[0, "reason"] == "entry_on_or_after_nav_end"
+
+
+def test_nav_chart_renders_svg_from_daily_nav(tmp_path: Path) -> None:
+    backtest_dir = tmp_path / "backtest"
+    backtest_dir.mkdir(parents=True, exist_ok=True)
+    daily_nav_csv = backtest_dir / "daily_nav.csv"
+    pd.DataFrame(
+        [
+            {"date": "2025-01-02", "daily_return": 0.0, "turnover": 0.0, "exposure": 0.0, "nav": 1.0, "drawdown": 0.0},
+            {"date": "2025-01-03", "daily_return": 0.02, "turnover": 0.1, "exposure": 0.1, "nav": 1.02, "drawdown": 0.0},
+            {"date": "2025-01-06", "daily_return": -0.01, "turnover": 0.1, "exposure": 0.1, "nav": 1.0098, "drawdown": -0.01},
+        ]
+    ).to_csv(daily_nav_csv, index=False, encoding="utf-8-sig")
+
+    output_svg = build_nav_chart(
+        NavChartConfig(
+            daily_nav_csv=resolve_daily_nav_csv(backtest_dir=backtest_dir, daily_nav_csv=None),
+            output_svg=backtest_dir / "nav_curve.svg",
+            title="Test NAV",
+        )
+    )
+
+    svg = output_svg.read_text(encoding="utf-8")
+    assert output_svg.exists()
+    assert "<svg" in svg
+    assert "Test NAV" in svg
+    assert "Drawdown" in svg

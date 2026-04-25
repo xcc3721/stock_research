@@ -26,6 +26,7 @@ dev = [
 stock-research-update-data = "stock_research.data.update_daily_data:main"
 stock-research-generate-reports = "stock_research.reporting.a2_reports:main"
 stock-research-backtest = "stock_research.backtest.standard_execution:main"
+stock-research-plot-nav = "stock_research.backtest.nav_chart:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

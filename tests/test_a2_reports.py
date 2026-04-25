@@ -18,6 +18,7 @@ def test_generate_a2_reports_writes_reports_with_a2_scores(synthetic_workspace: 
         start_date=trade_dates[-5].date().isoformat(),
         end_date=trade_dates[-1].date().isoformat(),
         candidate_pool_top_n=2,
+        works=2,
     )
 
     manifest_path = output_dir / "manifest.json"
@@ -25,6 +26,7 @@ def test_generate_a2_reports_writes_reports_with_a2_scores(synthetic_workspace: 
 
     assert manifest_path.exists()
     assert manifest["trade_dates_count"] == 5
+    assert manifest["works"] == 2
     assert len(report_paths) == 5
     assert len(manifest["a2_flat"]) == 5
 
