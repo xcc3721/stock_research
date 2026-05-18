@@ -18,6 +18,7 @@ from stock_research.reporting.simple_report import (
     load_runtime_config,
     resolve_code_filter,
 )
+from stock_research.selectors.indicators import compute_bbi, compute_dif, compute_kdj
 from stock_research.utils.paths import display_path
 
 
@@ -54,6 +55,20 @@ def _init_a2_report_worker(context: dict[str, Any]) -> None:
     universe = load_universe(data_path, allowed_codes=resolved_allowed_codes)
     if not universe:
         raise ValueError(f"未加载到任何行情数据: {data_path}")
+
+    # Precompute indicators for all stocks once per worker
+    LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
+    for code, frame in list(universe.items()):
+        frame = frame.copy()
+        frame["BBI"] = compute_bbi(frame)
+        kdj = compute_kdj(frame)
+        frame["K"] = kdj["K"]
+        frame["D"] = kdj["D"]
+        frame["J"] = kdj["J"]
+        frame["DIF"] = compute_dif(frame)
+        universe[code] = frame
+    LOGGER.info("Precompute done.")
+
     _WORKER_CONTEXT.clear()
     _WORKER_CONTEXT.update(
         {

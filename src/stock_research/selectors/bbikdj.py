@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List
 
+import numpy as np
 import pandas as pd
 
 from stock_research.selectors.indicators import (
@@ -28,34 +29,44 @@ class BBIKDJSelector:
         self.config = config or BBIKDJSelectorConfig()
 
     def _passes_filters(self, hist: pd.DataFrame) -> bool:
-        work = hist.copy()
-        work["BBI"] = compute_bbi(work)
+        # Use precomputed indicators if available; otherwise compute on the fly
+        if "BBI" not in hist.columns:
+            hist = hist.copy()
+            hist["BBI"] = compute_bbi(hist)
+        if "J" not in hist.columns:
+            hist = hist.copy()
+            kdj = compute_kdj(hist)
+            hist["J"] = kdj["J"]
+        if "DIF" not in hist.columns:
+            hist = hist.copy()
+            hist["DIF"] = compute_dif(hist)
 
-        window = work.tail(self.config.max_window)
-        high = float(window["close"].max())
-        low = float(window["close"].min())
+        close_vals = hist["close"].values
+        n = len(close_vals)
+        window_len = min(n, self.config.max_window)
+        window_closes = close_vals[-window_len:]
+        high = float(window_closes.max())
+        low = float(window_closes.min())
         if low <= 0.0 or (high / low - 1.0) > float(self.config.price_range_pct):
             return False
 
         if not bbi_deriv_uptrend(
-            work["BBI"],
+            hist["BBI"],
             min_window=int(self.config.bbi_min_window),
             max_window=int(self.config.max_window),
             q_threshold=float(self.config.bbi_q_threshold),
         ):
             return False
 
-        kdj = compute_kdj(work)
-        j_today = float(kdj.iloc[-1]["J"])
-        j_window = kdj["J"].tail(int(self.config.max_window)).dropna()
-        if j_window.empty:
-            return False
-        j_quantile = float(j_window.quantile(float(self.config.j_q_threshold)))
+        j_vals = hist["J"].values
+        j_today = float(j_vals[-1])
+        j_window = j_vals[-window_len:]
+        j_quantile = float(np.quantile(j_window, float(self.config.j_q_threshold)))
         if not (j_today < float(self.config.j_threshold) or j_today <= j_quantile):
             return False
 
-        work["DIF"] = compute_dif(work)
-        return float(work["DIF"].iloc[-1]) > 0.0
+        dif_vals = hist["DIF"].values
+        return float(dif_vals[-1]) > 0.0
 
     def select(self, date: pd.Timestamp, data: Dict[str, pd.DataFrame]) -> List[str]:
         picks: List[str] = []

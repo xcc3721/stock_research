@@ -34,6 +34,14 @@ htmlcov/
 /logs/
 /backtest/
 
+# Node / npm
+node_modules/
+package.json
+package-lock.json
+
+# Claude Code local state
+.claude/
+
 # Build artifacts
 /dist/
 /build/

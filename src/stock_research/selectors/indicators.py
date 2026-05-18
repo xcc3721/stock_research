@@ -53,11 +53,13 @@ def bbi_deriv_uptrend(
     if len(clean) < min_window:
         return False
 
-    longest = min(len(clean), max_window or len(clean))
+    vals = clean.values
+    n = len(vals)
+    longest = min(n, max_window or n)
     for window in range(longest, min_window - 1, -1):
-        segment = clean.iloc[-window:]
-        norm = segment / segment.iloc[0]
-        diffs = np.diff(norm.values)
+        segment = vals[-window:]
+        norm = segment / segment[0]
+        diffs = np.diff(norm)
         if np.quantile(diffs, q_threshold) >= 0.0:
             return True
     return False

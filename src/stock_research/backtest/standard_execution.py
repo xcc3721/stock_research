@@ -357,7 +357,7 @@ def run_standard_execution(config: StandardExecutionConfig) -> dict[str, Path]:
             )
             continue
         entry_date = pd.Timestamp(calendar[entry_idx])
-        if entry_date >= nav_end_date:
+        if entry_date > nav_end_date:
             _append_skipped_picks(
                 skipped_rows,
                 group_map=group_map,
@@ -365,7 +365,7 @@ def run_standard_execution(config: StandardExecutionConfig) -> dict[str, Path]:
                 top_n=int(config.top_n),
                 score_col=config.score_col,
                 intended_entry_date=entry_date,
-                reason="entry_on_or_after_nav_end",
+                reason="entry_after_nav_end",
                 detail=f"nav_end_date={nav_end_date.date().isoformat()}",
             )
             continue
