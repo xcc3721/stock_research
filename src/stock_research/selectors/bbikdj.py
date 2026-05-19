@@ -70,11 +70,14 @@ class BBIKDJSelector:
 
     def select(self, date: pd.Timestamp, data: Dict[str, pd.DataFrame]) -> List[str]:
         picks: List[str] = []
+        max_hist = int(self.config.max_window) + 20
         for code, frame in data.items():
-            hist = frame[frame["date"] <= date]
-            if hist.empty:
+            # Use binary search (O(log n)) instead of boolean mask (O(n))
+            idx = int(frame["date"].searchsorted(date, side="right")) - 1
+            if idx < 0:
                 continue
-            hist = hist.tail(int(self.config.max_window) + 20)
+            start = max(0, idx - max_hist + 1)
+            hist = frame.iloc[start : idx + 1]
             if self._passes_filters(hist):
                 picks.append(str(code))
         return sorted(picks)
