@@ -103,29 +103,17 @@ def load_universe(
     *,
     allowed_codes: set[str] | None = None,
 ) -> dict[str, pd.DataFrame]:
-    from concurrent.futures import ThreadPoolExecutor
-
-    csv_paths = sorted(data_dir.glob("*.csv"))
-
-    def _load_one(csv_path: Path) -> tuple[str, pd.DataFrame] | None:
+    frames: dict[str, pd.DataFrame] = {}
+    for csv_path in sorted(data_dir.glob("*.csv")):
         code = _normalize_code(csv_path.stem)
         if not code:
-            return None
+            continue
         if allowed_codes is not None and code not in allowed_codes:
-            return None
+            continue
         frame = _read_price_frame(csv_path)
         if frame.empty:
-            return None
-        return code, frame
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        results = executor.map(_load_one, csv_paths)
-
-    frames: dict[str, pd.DataFrame] = {}
-    for result in results:
-        if result is not None:
-            code, frame = result
-            frames[code] = frame
+            continue
+        frames[code] = frame
     return frames
 
 
