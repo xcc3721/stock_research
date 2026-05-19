@@ -60,6 +60,14 @@ def bbi_deriv_uptrend(
     all_diffs = np.diff(vals)
     for window in range(longest, min_window - 1, -1):
         diffs = all_diffs[-(window - 1):]
+        m = len(diffs)
+        # Quick-reject: quantile(diffs, q) >= 0 requires at least
+        # m - floor(q*(m-1)) - 1 values >= 0. Skip the expensive quantile
+        # call when this necessary condition cannot hold.
+        k = int(np.floor(q_threshold * (m - 1)))
+        min_positive = m - k - 1
+        if np.count_nonzero(diffs >= 0) < min_positive:
+            continue
         if np.quantile(diffs, q_threshold) >= 0.0:
             return True
     return False
