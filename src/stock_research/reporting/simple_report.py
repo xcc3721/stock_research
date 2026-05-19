@@ -118,11 +118,11 @@ def load_universe(
 
 
 def available_trade_dates(universe: dict[str, pd.DataFrame]) -> list[pd.Timestamp]:
-    dates: set[pd.Timestamp] = set()
+    # _read_price_frame already normalizes dates; avoid per-cell Timestamp creation
+    dates = set()
     for frame in universe.values():
-        for value in pd.DatetimeIndex(frame["date"].dropna().unique()):
-            dates.add(pd.Timestamp(value).normalize())
-    return sorted(dates)
+        dates.update(frame["date"].dropna().unique())
+    return sorted(pd.to_datetime(list(dates)))
 
 
 def build_factor_details(
