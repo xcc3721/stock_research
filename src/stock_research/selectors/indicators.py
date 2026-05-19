@@ -52,13 +52,14 @@ def bbi_deriv_uptrend(
     if len(clean) < min_window:
         return False
 
-    vals = clean.values
+    vals = clean.to_numpy(dtype=float)
     n = len(vals)
     longest = min(n, max_window or n)
+    # BBI > 0 always (average of MAs of positive prices), so normalizing
+    # by segment[0] just scales diffs by a positive constant. Skip it.
+    all_diffs = np.diff(vals)
     for window in range(longest, min_window - 1, -1):
-        segment = vals[-window:]
-        norm = segment / segment[0]
-        diffs = np.diff(norm)
+        diffs = all_diffs[-(window - 1):]
         if np.quantile(diffs, q_threshold) >= 0.0:
             return True
     return False
