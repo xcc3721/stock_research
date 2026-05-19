@@ -12,15 +12,14 @@ def compute_kdj(df: pd.DataFrame, n: int = 9) -> pd.DataFrame:
     high_n = df["high"].rolling(window=n, min_periods=1).max()
     rsv = (df["close"] - low_n) / (high_n - low_n + 1e-9) * 100.0
 
-    k = np.zeros_like(rsv, dtype=float)
-    d = np.zeros_like(rsv, dtype=float)
-    for idx in range(len(df)):
-        if idx == 0:
-            k[idx] = 50.0
-            d[idx] = 50.0
-            continue
-        k[idx] = 2.0 / 3.0 * k[idx - 1] + 1.0 / 3.0 * float(rsv.iloc[idx])
-        d[idx] = 2.0 / 3.0 * d[idx - 1] + 1.0 / 3.0 * float(k[idx])
+    rsv_vals = rsv.to_numpy(dtype=float)
+    k = np.zeros_like(rsv_vals, dtype=float)
+    d = np.zeros_like(rsv_vals, dtype=float)
+    k[0] = 50.0
+    d[0] = 50.0
+    for idx in range(1, len(rsv_vals)):
+        k[idx] = 2.0 / 3.0 * k[idx - 1] + 1.0 / 3.0 * rsv_vals[idx]
+        d[idx] = 2.0 / 3.0 * d[idx - 1] + 1.0 / 3.0 * k[idx]
     j = 3.0 * k - 2.0 * d
     return df.assign(K=k, D=d, J=j)
 
