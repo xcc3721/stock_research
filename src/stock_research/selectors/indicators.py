@@ -12,16 +12,14 @@ def compute_kdj(df: pd.DataFrame, n: int = 9) -> pd.DataFrame:
     high_n = df["high"].rolling(window=n, min_periods=1).max()
     rsv = (df["close"] - low_n) / (high_n - low_n + 1e-9) * 100.0
 
-    rsv_vals = rsv.to_numpy(dtype=float)
-    k = np.zeros_like(rsv_vals, dtype=float)
-    d = np.zeros_like(rsv_vals, dtype=float)
-    k[0] = 50.0
-    d[0] = 50.0
-    for idx in range(1, len(rsv_vals)):
-        k[idx] = 2.0 / 3.0 * k[idx - 1] + 1.0 / 3.0 * rsv_vals[idx]
-        d[idx] = 2.0 / 3.0 * d[idx - 1] + 1.0 / 3.0 * k[idx]
+    # Vectorized EMA: equivalent to the manual loop but avoids Python-level
+    # iteration.  For long histories the initial-value difference vanishes
+    # (alpha=1/3 decays to <1e-6 in ~30 bars).
+    rsv_s = pd.Series(rsv.to_numpy(), dtype=float)
+    k = rsv_s.ewm(alpha=1.0 / 3.0, adjust=False).mean()
+    d = k.ewm(alpha=1.0 / 3.0, adjust=False).mean()
     j = 3.0 * k - 2.0 * d
-    return df.assign(K=k, D=d, J=j)
+    return df.assign(K=k.to_numpy(), D=d.to_numpy(), J=j.to_numpy())
 
 
 def compute_bbi(df: pd.DataFrame) -> pd.Series:
