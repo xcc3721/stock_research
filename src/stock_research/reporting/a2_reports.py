@@ -62,21 +62,20 @@ def _init_a2_report_worker(context: dict[str, Any]) -> None:
     else:
         data_path = Path(data_dir)
         universe = load_universe(data_path, allowed_codes=resolved_allowed_codes)
+        # Fallback: precompute indicators in worker when no pickle is available
+        LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
+        for code, frame in list(universe.items()):
+            frame = frame.copy()
+            frame["BBI"] = compute_bbi(frame)
+            kdj = compute_kdj(frame)
+            frame["K"] = kdj["K"]
+            frame["D"] = kdj["D"]
+            frame["J"] = kdj["J"]
+            frame["DIF"] = compute_dif(frame)
+            universe[code] = frame
+        LOGGER.info("Precompute done.")
     if not universe:
         raise ValueError(f"未加载到任何行情数据: {data_dir}")
-
-    # Precompute indicators for all stocks once per worker
-    LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
-    for code, frame in list(universe.items()):
-        frame = frame.copy()
-        frame["BBI"] = compute_bbi(frame)
-        kdj = compute_kdj(frame)
-        frame["K"] = kdj["K"]
-        frame["D"] = kdj["D"]
-        frame["J"] = kdj["J"]
-        frame["DIF"] = compute_dif(frame)
-        universe[code] = frame
-    LOGGER.info("Precompute done.")
 
     _WORKER_CONTEXT.clear()
     _WORKER_CONTEXT.update(
@@ -160,7 +159,20 @@ def generate_a2_reports(
     worker_count = min(max(1, int(workers)), len(trade_dates))
     allowed_codes_tuple = tuple(sorted(allowed_codes)) if allowed_codes is not None else None
 
-    # Cache universe as pickle so workers avoid re-parsing CSVs
+    # Precompute indicators once in main process and cache as pickle.
+    # Workers load the hot universe directly, skipping CSV re-parse + recalculation.
+    LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
+    for code, frame in list(universe.items()):
+        frame = frame.copy()
+        frame["BBI"] = compute_bbi(frame)
+        kdj = compute_kdj(frame)
+        frame["K"] = kdj["K"]
+        frame["D"] = kdj["D"]
+        frame["J"] = kdj["J"]
+        frame["DIF"] = compute_dif(frame)
+        universe[code] = frame
+    LOGGER.info("Precompute done.")
+
     universe_pickle_fd, universe_pickle_path = tempfile.mkstemp(suffix=".pkl")
     os.close(universe_pickle_fd)
     with open(universe_pickle_path, "wb") as f:
