@@ -7,7 +7,7 @@ import logging
 import os
 import pickle
 import tempfile
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -73,27 +73,25 @@ def _init_a2_report_worker(context: dict[str, Any]) -> None:
     resolved_allowed_codes = set(allowed_codes) if allowed_codes is not None else None
     runtime_path = Path(runtime_config_path)
 
-    universe = context.get("universe")
-    if universe is None:
-        pickle_path = context.get("universe_pickle_path")
-        if pickle_path and Path(pickle_path).exists():
-            with open(pickle_path, "rb") as f:
-                universe = pickle.load(f)
-        else:
-            data_path = Path(data_dir)
-            universe = load_universe(data_path, allowed_codes=resolved_allowed_codes)
-            # Fallback: precompute indicators in worker when no pickle is available
-            LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
-            for code, frame in list(universe.items()):
-                frame = frame.copy()
-                frame["BBI"] = compute_bbi(frame)
-                kdj = compute_kdj(frame)
-                frame["K"] = kdj["K"]
-                frame["D"] = kdj["D"]
-                frame["J"] = kdj["J"]
-                frame["DIF"] = compute_dif(frame)
-                universe[code] = frame
-            LOGGER.info("Precompute done.")
+    pickle_path = context.get("universe_pickle_path")
+    if pickle_path and Path(pickle_path).exists():
+        with open(pickle_path, "rb") as f:
+            universe = pickle.load(f)
+    else:
+        data_path = Path(data_dir)
+        universe = load_universe(data_path, allowed_codes=resolved_allowed_codes)
+        # Fallback: precompute indicators in worker when no pickle is available
+        LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
+        for code, frame in list(universe.items()):
+            frame = frame.copy()
+            frame["BBI"] = compute_bbi(frame)
+            kdj = compute_kdj(frame)
+            frame["K"] = kdj["K"]
+            frame["D"] = kdj["D"]
+            frame["J"] = kdj["J"]
+            frame["DIF"] = compute_dif(frame)
+            universe[code] = frame
+        LOGGER.info("Precompute done.")
     if not universe:
         raise ValueError(f"未加载到任何行情数据: {data_dir}")
 
@@ -193,7 +191,13 @@ def generate_a2_reports(
         universe[code] = frame
     LOGGER.info("Precompute done.")
 
-    # ThreadPoolExecutor shares memory, so pass universe directly without pickle.
+    universe_pickle_fd, universe_pickle_path = tempfile.mkstemp(suffix=".pkl")
+    os.close(universe_pickle_fd)
+    with open(universe_pickle_path, "wb") as f:
+        pickle.dump(universe, f)
+    del universe
+    gc.collect()
+
     worker_kwargs = {
         "data_dir": str(data_dir),
         "output_dir": str(output_dir),
@@ -203,16 +207,26 @@ def generate_a2_reports(
         "candidate_pool_top_n": int(candidate_pool_top_n),
         "candidate_pool_sort": str(candidate_pool_sort),
         "candidate_pool_csv": str(candidate_pool_csv) if candidate_pool_csv is not None else "",
-        "universe": universe,
+        "universe_pickle_path": universe_pickle_path,
     }
-    _init_a2_report_worker(worker_kwargs)
     if worker_count == 1:
+        _init_a2_report_worker(worker_kwargs)
         a2_rows = [_generate_one_a2_report_worker(trade_date) for trade_date in trade_dates]
+        _WORKER_CONTEXT.clear()
     else:
         chunksize = max(1, len(trade_dates) // (worker_count * 4))
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        with ProcessPoolExecutor(
+            max_workers=worker_count,
+            initializer=_init_a2_report_worker,
+            initargs=(worker_kwargs,),
+        ) as executor:
             a2_rows = list(executor.map(_generate_one_a2_report_worker, trade_dates, chunksize=chunksize))
-    _WORKER_CONTEXT.clear()
+
+    # Clean up temp pickle regardless of success/failure
+    try:
+        os.unlink(universe_pickle_path)
+    except OSError:
+        pass
 
     a2_rows = sorted(a2_rows, key=lambda row: str(row.get("trade_date", "")))
     report_files = [Path(str(row["report_json"])) for row in a2_rows]
