@@ -4,6 +4,9 @@ import argparse
 import gc
 import json
 import logging
+import os
+import pickle
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -50,11 +53,17 @@ def _init_a2_report_worker(context: dict[str, Any]) -> None:
     candidate_pool_sort = str(context["candidate_pool_sort"])
     candidate_pool_csv = str(context["candidate_pool_csv"])
     resolved_allowed_codes = set(allowed_codes) if allowed_codes is not None else None
-    data_path = Path(data_dir)
     runtime_path = Path(runtime_config_path)
-    universe = load_universe(data_path, allowed_codes=resolved_allowed_codes)
+
+    pickle_path = context.get("universe_pickle_path")
+    if pickle_path and Path(pickle_path).exists():
+        with open(pickle_path, "rb") as f:
+            universe = pickle.load(f)
+    else:
+        data_path = Path(data_dir)
+        universe = load_universe(data_path, allowed_codes=resolved_allowed_codes)
     if not universe:
-        raise ValueError(f"未加载到任何行情数据: {data_path}")
+        raise ValueError(f"未加载到任何行情数据: {data_dir}")
 
     # Precompute indicators for all stocks once per worker
     LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
@@ -150,6 +159,12 @@ def generate_a2_reports(
     output_dir.mkdir(parents=True, exist_ok=True)
     worker_count = min(max(1, int(workers)), len(trade_dates))
     allowed_codes_tuple = tuple(sorted(allowed_codes)) if allowed_codes is not None else None
+
+    # Cache universe as pickle so workers avoid re-parsing CSVs
+    universe_pickle_fd, universe_pickle_path = tempfile.mkstemp(suffix=".pkl")
+    os.close(universe_pickle_fd)
+    with open(universe_pickle_path, "wb") as f:
+        pickle.dump(universe, f)
     del universe
     gc.collect()
 
@@ -162,6 +177,7 @@ def generate_a2_reports(
         "candidate_pool_top_n": int(candidate_pool_top_n),
         "candidate_pool_sort": str(candidate_pool_sort),
         "candidate_pool_csv": str(candidate_pool_csv) if candidate_pool_csv is not None else "",
+        "universe_pickle_path": universe_pickle_path,
     }
     if worker_count == 1:
         _init_a2_report_worker(worker_kwargs)
@@ -175,6 +191,12 @@ def generate_a2_reports(
             initargs=(worker_kwargs,),
         ) as executor:
             a2_rows = list(executor.map(_generate_one_a2_report_worker, trade_dates, chunksize=chunksize))
+
+    # Clean up temp pickle regardless of success/failure
+    try:
+        os.unlink(universe_pickle_path)
+    except OSError:
+        pass
 
     a2_rows = sorted(a2_rows, key=lambda row: str(row.get("trade_date", "")))
     report_files = [Path(str(row["report_json"])) for row in a2_rows]
