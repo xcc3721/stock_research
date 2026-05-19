@@ -31,6 +31,24 @@ DEFAULT_A2_CONFIG_PATH = "configs/a2/flat_v1_stable_penalty_overlay.json"
 _WORKER_CONTEXT: dict[str, Any] = {}
 
 
+def _load_universe_cached(data_dir: Path, allowed_codes: set[str] | None) -> dict[str, pd.DataFrame]:
+    """Load universe from cache if CSVs haven't changed since last run."""
+    cache_path = data_dir / ".universe_cache.pkl"
+    if cache_path.exists():
+        cache_mtime = cache_path.stat().st_mtime
+        csv_files = [p for p in data_dir.glob("*.csv") if p.stem != "industry_map"]
+        if csv_files and all(f.stat().st_mtime < cache_mtime for f in csv_files):
+            LOGGER.info("Loading universe from cache: %s", cache_path)
+            with open(cache_path, "rb") as f:
+                return pickle.load(f)
+
+    universe = load_universe(data_dir, allowed_codes=allowed_codes)
+    LOGGER.info("Saving universe cache: %s", cache_path)
+    with open(cache_path, "wb") as f:
+        pickle.dump(universe, f)
+    return universe
+
+
 def _trade_date_from_report(path: Path) -> pd.Timestamp:
     payload = json.loads(path.read_text(encoding="utf-8"))
     data = payload.get("data", {}) if isinstance(payload, dict) else {}
@@ -139,7 +157,7 @@ def generate_a2_reports(
     workers: int = 4,
 ) -> dict[str, Any]:
     allowed_codes = resolve_code_filter(codes=codes, codes_file=codes_file)
-    universe = load_universe(data_dir, allowed_codes=allowed_codes)
+    universe = _load_universe_cached(data_dir, allowed_codes=allowed_codes)
     if not universe:
         raise ValueError(f"未加载到任何行情数据: {data_dir}")
 
