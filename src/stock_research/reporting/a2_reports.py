@@ -177,19 +177,27 @@ def generate_a2_reports(
     worker_count = min(max(1, int(workers)), len(trade_dates))
     allowed_codes_tuple = tuple(sorted(allowed_codes)) if allowed_codes is not None else None
 
-    # Precompute indicators once in main process and cache as pickle.
-    # Workers load the hot universe directly, skipping CSV re-parse + recalculation.
-    LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
-    for code, frame in list(universe.items()):
-        frame = frame.copy()
-        frame["BBI"] = compute_bbi(frame)
-        kdj = compute_kdj(frame)
-        frame["K"] = kdj["K"]
-        frame["D"] = kdj["D"]
-        frame["J"] = kdj["J"]
-        frame["DIF"] = compute_dif(frame)
-        universe[code] = frame
-    LOGGER.info("Precompute done.")
+    # Precompute indicators once in main process.
+    # If the cached universe doesn't have indicators yet, compute and update the cache.
+    first_frame = next(iter(universe.values()))
+    if "BBI" not in first_frame.columns:
+        LOGGER.info("Precomputing BBI/KDJ/DIF for %s stocks...", len(universe))
+        for code, frame in list(universe.items()):
+            frame = frame.copy()
+            frame["BBI"] = compute_bbi(frame)
+            kdj = compute_kdj(frame)
+            frame["K"] = kdj["K"]
+            frame["D"] = kdj["D"]
+            frame["J"] = kdj["J"]
+            frame["DIF"] = compute_dif(frame)
+            universe[code] = frame
+        LOGGER.info("Precompute done.")
+        # Update the on-disk cache with the hot universe so next run skips this.
+        cache_path = data_dir / ".universe_cache.pkl"
+        with open(cache_path, "wb") as f:
+            pickle.dump(universe, f)
+    else:
+        LOGGER.info("Using precomputed indicators from cache.")
 
     universe_pickle_fd, universe_pickle_path = tempfile.mkstemp(suffix=".pkl")
     os.close(universe_pickle_fd)
